@@ -1,9 +1,34 @@
 <template>
-  <div>
-    <div id="main" class="main" style="width: 600px;height:400px;"></div><!-- 这样的表示一个页面节点 -->
-    <el-input readonly v-model="rec"></el-input><!-- 这样的表示一个页面节点 -->
+  <div class="mian">
+    <el-container>
+      <el-header class="header">
+        <h1>基于物联网的室内火灾智能检测</h1>
+      </el-header>
+      <el-container>
+        <el-aside width="25vw" class="aside">
+          <div id="temp" class="temp" style="width: 25vw;height:18vw;"></div>
+          <h2 style="margin-bottom: 5vh;margin-top: -5vh">室内实时温度</h2>
+          <div id="hum" class="hum" style="width: 25vw;height:18vw;"></div>
+          <h2 style="margin-bottom: 5vh;margin-top: -5vh">室内实时湿度</h2>
+        </el-aside>
+        <el-container>
+          <el-main class="el_main">
+            <div id="chart" class="chart" style="width: 50vw;height:30vw;"></div>
+            <div class="aside">
+              <div id="mq" class="mq" style="width: 25vw;height:18vw;"></div>
+              <h2 style="margin-bottom: 5vh;margin-top: -5vh">室内可燃性气体</h2>
+              <div id="hum" class="hum" style="width: 25vw;height:18vw;"></div>
+              <h2 style="margin-bottom: 5vh;margin-top: -5vh">火焰传感器</h2>
+            </div>
+          </el-main>
+        </el-container>
+      </el-container>
+    </el-container>
+    
+    
+    <!-- <el-input readonly v-model="rec"></el-input>
     <el-input v-model="input" placeholder="请输入内容"></el-input>
-    <el-button @click="doPublish()">提交</el-button>
+    <el-button @click="doPublish()">提交</el-button> -->
   </div>
 </template>
 
@@ -11,17 +36,17 @@
 import mqtt from 'mqtt'
 require('fast-text-encoding')
 const echarts = require('echarts');
+import { tempOption } from '../util/temp'
+import { humOption } from '../util/hum'
+import { chartOption } from '../util/chart'
+import { mq135Option } from '../util/mq135'
+import { formatDate } from '../util/time'
+
 export default {
   name: 'Home',
   components: {},
   data() { //页面全局数据，一些不是函数内的数据尽量再这声明
     return {
-      //实时数据数组
-      date: [120, 132, 101, 134, 90, 230, 210],
-      yao: [120, 132, 101, 134, 90, 230, 210],
-      gua: [120, 132, 101, 134, 90, 230, 210],
-      qi: [120, 132, 101, 134, 90, 230, 210],
-
       input: '',
       connection: { //数据不需要声明类型，这种就是对象
         host: '119.29.4.214',
@@ -49,132 +74,49 @@ export default {
       },
       subscribeSuccess: false, //这种就是bool型，直接：赋值就行，或者不赋值直接: "",为空
       rec: '',
-      nowOptions: {
-        visualMap: [
-          {
-            show: true,
-            type: 'continuous',
-            seriesIndex: 0,
-            min: 0,
-            max: 400,
-          },
-        ],
-        title: {
-          left: 'left',
-          text: '电量消耗实时统计',
-        },
-        tooltip: {
-          trigger: 'axis',
-          formatter: function(params) {
-            params = params[0]
-            var date = new Date(params.name)
-            return (
-              date.getDate() +
-              '/' +
-              (date.getMonth() + 1) +
-              '/' +
-              date.getFullYear() +
-              ' : ' +
-              params.value[1]
-            )
-          },
-          axisPointer: {
-            animation: false,
-          },
-        },
-        grid: {
-          top: '15%',
-          bottom: '10%',
-        },
-        xAxis: {
-          type: 'time',
-          splitLine: {
-            show: false,
-          },
-          triggerEvent: true,
-        },
-        yAxis: {
-          type: 'value',
-          boundaryGap: [0, '100%'],
-          max: 100,
-          splitLine: {
-            show: false,
-          },
-        },
-        series: [
-          {
-            type: 'line',
-            showSymbol: false,
-            hoverAnimation: false,
-            data: [],
-          },
-        ],
-      },
-      // option :{
-      //    title: {
-      //       text: '折线图'
-      //   },
-      //   tooltip: {
-      //       trigger: 'axis'
-      //   },
-      //   legend: {
-      //       data: ['尧山', '瓜子山', '七星公园']
-      //   },
-      //   grid: {
-      //       left: '3%',
-      //       right: '4%',
-      //       bottom: '3%',
-      //       containLabel: true
-      //   },
-      //   toolbox: {
-      //       feature: {
-      //           saveAsImage: {}
-      //       }
-      //   },
-      //   xAxis: {
-      //       type: 'category',
-      //       boundaryGap: false,
-      //       data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日']
-      //       //this.date
-      //   },
-      //   yAxis: {
-      //       type: 'value'
-      //   },
-      //   series: [
-      //       {
-      //           name: '尧山',
-      //           type: 'line',
-      //           stack: '总量',
-      //           data: [120, 132, 101, 134, 90, 230, 210]
-      //           //this.yao
-      //       },
-      //       {
-      //           name: '瓜子山',
-      //           type: 'line',
-      //           stack: '总量',
-      //           data: [220, 182, 191, 234, 290, 330, 310]
-      //           // this.gua
-      //       },
-      //       {
-      //           name: '七星公园',
-      //           type: 'line',
-      //           stack: '总量',
-      //           data: [150, 232, 201, 154, 190, 330, 410]
-      //           //this.qi
-      //       }
-      //   ]
-      // }
+      
     }
+    
   },
 
   created() { //vu页面生命周期，页面一创建里边的函数就会被执行
-    this.createConnection()
-    this.doSubscribe()
+    /* this.createConnection()
+    this.doSubscribe() */
     
   },
   mounted() {//vue页面生命周期，页面节点渲染完毕执行
-    var myChart = echarts.init(document.getElementById('main')); //为什么再这里执行是因为通过document.getElementById('main')获取了这个节点，如果再created里边执行可能会碰到节点还没有渲染就执行了会报错
-    myChart.setOption(this.nowOption);
+    console.log(formatDate())
+    var temp = document.getElementById('temp');
+    var hum = document.getElementById('hum');
+    var chart = document.getElementById('chart');
+    var mq135 = document.getElementById('mq');
+    var tempChart = echarts.init(temp);
+    var humChart = echarts.init(hum);
+    var Chart = echarts.init(chart);
+    var mq135Chart = echarts.init(mq135);
+    tempOption && tempChart.setOption(tempOption);
+    humOption && humChart.setOption(humOption);
+    chartOption && Chart.setOption(chartOption);
+    mq135Option && mq135Chart.setOption(mq135Option);
+    setInterval(function() {
+        // let random = (Math.random() * 60).toFixed(2) - 0;
+        tempOption.series.data[0].value = 30;
+        tempChart.setOption(tempOption, true);
+        humOption.series.data[0].value = 30;
+        humChart.setOption(humOption, true);
+        
+        if(chartOption.series[0].data.length > 18){
+          chartOption.series[0].data.shift()
+          chartOption.series[1].data.shift()
+          chartOption.series[2].data.shift()
+          chartOption.xAxis.data.shift()
+        }
+        chartOption.xAxis.data.push(formatDate())
+        chartOption.series[0].data.push(Math.random()*100)
+        chartOption.series[1].data.push(Math.random()*100)
+        chartOption.series[2].data.push(Math.random()*100)
+        Chart.setOption(chartOption, true)
+    }, 1000);
   },
   methods: { //页面方法，可以再mounted或者created里边直接调用
     // 创建连接
@@ -222,76 +164,29 @@ export default {
           console.log('Publish error', error)
         }
       })
-    },
-      nowChart() {
-      let that = this
-      var data = []
-      var now = +new Date()
-      var value = Math.random() * 1000
-      for (var i = 0; i < 60; i++) {
-        now = new Date(+now + this.oneDay)
-        data.push(this.randomData(now, value))
-      }
-      // 基于准备好的dom，初始化echarts实例
-      var myChart = echarts.init(document.getElementById('main'))
-
-      // 绘制图表
-      var temp = 59
-      let options = Object.assign(that.nowOptions, {})
-      options.series.forEach((item) => {
-        item.data = data
-        item.markPoint = {
-          data: [
-            [
-              {
-                symbol: 'none',
-                x: '95%',
-              },
-              {
-                symbol: 'circle',
-                name: '实时数据',
-                value: data[temp].value[1],
-                xAxis: data[temp].value[0],
-              },
-            ],
-          ],
-        }
-      })
-      myChart.setOption(options)
-      // 1秒定时器
-      setInterval(() => {
-        for (var i = 0; i < 1; i++) {
-          data.shift()
-          now = new Date(+now + this.oneDay)
-          data.push(this.randomData(now, value))
-        }
-        myChart.setOption(options)
-      }, 1000)
-    },
-    randomData(now, value) {
-      value = Math.random() * 100
-      var valueName =
-        now.getFullYear() +
-        '/' +
-        (now.getMonth() + 1) +
-        '/' +
-        now.getDate() +
-        ' ' +
-        (now.getHours() >= 10 ? now.getHours() : '0' + now.getHours()) +
-        ':' +
-        (now.getMinutes() >= 10 ? now.getMinutes() : '0' + now.getMinutes()) +
-        ':' +
-        (now.getSeconds() >= 10 ? now.getSeconds() : '0' + now.getSeconds())
-      return {
-        name: now.toString(),
-        value: [valueName, Math.round(value)],
-      }
-    },
+    }
   }
 }
 </script>
 <style>
   .main{
-    margin: 0 auto;
+    width: 100vw;
+    height: 100vh;
+  }
+  .temp{
+    
+  }
+  .el-header{
+    height: 8vw !important;
+    text-align: center;
+    font-size: 2vw;
+  }
+  .aside{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .el_main{
+    display: flex;
   }
 </style>
