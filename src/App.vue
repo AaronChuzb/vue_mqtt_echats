@@ -12,6 +12,7 @@
 html body{
   padding: 0;
   margin: 0;
+  background: #f2f2f2;
 }
 
 </style>

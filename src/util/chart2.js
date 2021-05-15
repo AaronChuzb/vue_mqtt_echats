@@ -1,7 +1,7 @@
 
-const chartOption = {
+const chart2Option = {
     title: {
-        text: '数据来源：客厅节点'
+        text: '数据来源：卧室节点'
     },
     tooltip: {
         trigger: 'axis'
@@ -62,5 +62,5 @@ const chartOption = {
 };
 
 export {
-    chartOption
+    chart2Option
   }
