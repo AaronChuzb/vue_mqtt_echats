@@ -12,6 +12,7 @@
             <template slot="title">系统操作</template>
             <el-menu-item index="2-1">修改数据来源服务器</el-menu-item>
             <el-menu-item index="2-2">修改订阅主题</el-menu-item>
+            <el-menu-item index="2-3">更改接收警报邮箱地址</el-menu-item>
           </el-submenu>
           <el-submenu index="3">
             <template slot="title">MQTT操作</template>
@@ -75,8 +76,8 @@
                       <span>灾情指示灯1</span>
                     </div>
                     <div class="button_box">
-                      <div><el-button type="primary">打开</el-button></div>
-                      <div style="margin-top: 15px"><el-button type="info">关闭</el-button></div>
+                      <div><el-button type="primary" @click="pub(11)">打开</el-button></div>
+                      <div style="margin-top: 15px"><el-button type="info" @click="pub(10)">关闭</el-button></div>
                     </div>
                   </el-card>
                   <el-card class="box-card" style="margin-left: 1rem; width: 10vw">
@@ -84,8 +85,8 @@
                       <span>灾情指示灯2</span>
                     </div>
                     <div class="button_box">
-                      <div><el-button type="primary">打开</el-button></div>
-                      <div style="margin-top: 15px"><el-button type="info">关闭</el-button></div>
+                      <div><el-button type="primary" @click="pub(21)">打开</el-button></div>
+                      <div style="margin-top: 15px"><el-button type="info" @click="pub(20)">关闭</el-button></div>
                     </div>
                   </el-card>
                   <el-card class="box-card" style="margin-left: 1rem; width: 10vw">
@@ -93,8 +94,8 @@
                       <span>灭火设备1</span>
                     </div>
                     <div class="button_box">
-                      <div><el-button type="primary">打开</el-button></div>
-                      <div style="margin-top: 15px"><el-button type="info">关闭</el-button></div>
+                      <div><el-button type="primary" @click="pub(12)">打开</el-button></div>
+                      <div style="margin-top: 15px"><el-button type="info" @click="pub(13)">关闭</el-button></div>
                     </div>
                   </el-card>
                   <el-card class="box-card" style="margin-left: 1rem; width: 10vw">
@@ -102,8 +103,8 @@
                       <span>灭火设备2</span>
                     </div>
                     <div class="button_box">
-                      <div><el-button type="primary">打开</el-button></div>
-                      <div style="margin-top: 15px"><el-button type="info">关闭</el-button></div>
+                      <div><el-button type="primary" @click="pub(22)">打开</el-button></div>
+                      <div style="margin-top: 15px"><el-button type="info" @click="pub(23)">关闭</el-button></div>
                     </div>
                   </el-card>
                 </div>
@@ -112,16 +113,17 @@
                 <h1 style="">历史警报数据表</h1>
                 <el-table :data="tableData" stripe style="width: 100vw" height="30vw">
                   <el-table-column prop="date" label="时间"></el-table-column>
-                  <el-table-column prop="address" label="警报等级"></el-table-column>
+                  <el-table-column prop="level" label="警报等级"></el-table-column>
                   <el-table-column prop="name" label="数据来源"></el-table-column>
-                  <el-table-column prop="name" label="火焰传感器"></el-table-column>
-                  <el-table-column prop="name" label="现场温度"></el-table-column>
-                  <el-table-column prop="name" label="现场湿度"></el-table-column>
-                  <el-table-column prop="name" label="现场空气质量"></el-table-column> 
+                  <el-table-column prop="fire" label="火焰传感器"></el-table-column>
+                  <el-table-column prop="temp" label="现场温度"></el-table-column>
+                  <el-table-column prop="hum" label="现场湿度"></el-table-column>
+                  <el-table-column prop="mq" label="现场空气质量"></el-table-column> 
                 </el-table>
                 <div>
-                  <el-pagination background :hide-on-single-page="true" layout="prev, pager, next" :total="1000"></el-pagination>
+                  <el-pagination background :hide-on-single-page="false" @current-change="pageChange" layout="prev, pager, next" :page-count="pages"></el-pagination>
                 </div>
+                <el-button type="primary" :loading="getdata.status" @click="getData()">{{getdata.type}}</el-button>
               </el-tab-pane>
             </el-tabs>
           </div>
@@ -143,6 +145,13 @@
         <el-button type="primary" @click="editSub = false;reConnection()" >确 定</el-button>
       </span>
     </el-dialog>
+    <el-dialog title="修改接收邮箱地址" :visible.sync="editEmail" width="30%" :before-close="handleClose3">
+      <el-input v-model="email"></el-input>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="editEmail = false; email = oldEmail">取 消</el-button>
+        <el-button type="primary" @click="editEmail = false; editMyEmail()" >确 定</el-button>
+      </span>
+    </el-dialog>
   </div>
 </template>
 
@@ -160,9 +169,15 @@ export default {
   data() {
     //页面全局数据，一些不是函数内的数据尽量再这声明
     return {
+      getdata:{
+        status: false,
+        type: '获取'
+      },
+      pages: 1,
+      page: 1,
       editServer: false,
       editSub: false,
-      editUser: true,
+      editEmail: false,
       activeIndex: "1",
       activeName: 'first',
       mounted: false,
@@ -171,57 +186,10 @@ export default {
       topics: '',//存放编辑前的主题
       username: '',//存放编辑前的用户名
       password: '',//存放编辑前的密码
+      oldEmail: '',//存放编辑前的邮箱
+      email: '',
       tableData: [
-        {
-          date: "2021-05-14",
-          name: "1",
-          address: "1",
-        },
-        {
-          date: "2021-05-14",
-          name: "1",
-          address: "1",
-        },
-        {
-          date: "2021-05-14",
-          name: "1",
-          address: "1",
-        },
-        {
-          date: "2021-05-14",
-          name: "1",
-          address: "1",
-        },
-        {
-          date: "2021-05-14",
-          name: "1",
-          address: "1",
-        },
-        {
-          date: "2021-05-14",
-          name: "1",
-          address: "1",
-        },
-        {
-          date: "2021-05-14",
-          name: "1",
-          address: "1",
-        },
-        {
-          date: "2021-05-14",
-          name: "1",
-          address: "1",
-        },
-        {
-          date: "2021-05-14",
-          name: "1",
-          address: "1",
-        },
-        {
-          date: "2021-05-14",
-          name: "1",
-          address: "1",
-        }
+       {hum: '',temp: '', date: '', name: '', fire: '', level: '', mq: ''}
       ],
       input: "",
       connection: {
@@ -269,10 +237,49 @@ export default {
   },
 
   created() {
-    /* this.createConnection()
-    this.doSubscribe() */
     this.$axios.get('http://localhost:4000/datalen').then((res)=>{
       console.log(res)
+      
+      this.pages = Math.floor(res.data[0].TABLE_ROWS / 10)
+      if(res.data[0].TABLE_ROWS > 10 && res.data[0].TABLE_ROWS < 20) {
+        this.pages = 2
+      }
+      console.log(this.pages)
+    }).catch((error)=> {
+        console.log(error)
+    });
+    this.$axios({
+      url: 'http://localhost:4000/data',
+      method: 'get',
+      params: {
+        page: 1,
+        pageSize: 10,
+      },
+    }).then((res)=>{
+      console.log(res)
+      res.data.forEach(item =>{
+        let date2 = new Date(item.date);
+        item.date = date2.toLocaleString()
+        item.temp = item.temp + "℃"
+        item.hum = item.hum + "℃"
+        item.mq = item.mq + "PPM"
+        if(item.name == 'num1'){
+          item.name = '客厅节点'
+        }
+        if(item.name == 'num2'){
+          item.name = '卧室节点'
+        }
+        if(item.fire == '1'){
+          item.fire = '正常'
+        } else if(item.fire == '0'){
+          item.fire = '检测到火焰'
+        }
+      })
+      this.tableData = res.data
+    })
+    this.$axios.get('http://localhost:4000/getemail').then((res)=>{
+      console.log(res)
+      this.email = res.data
     }).catch((error)=> {
         console.log(error)
     });
@@ -282,6 +289,113 @@ export default {
     this.mounted = true
   },
   methods: {
+    pub(order){
+      this.publish = {
+        topic: "jcg_control",
+        qos: 0,
+        payload: `{"LED_SW":${order}}`,
+      }
+      this.doPublish()
+    },
+    pageChange(e){
+      console.log(e)
+      this.$axios({
+        url: 'http://localhost:4000/data',
+        method: 'get',
+        params: {
+          page: e,
+          pageSize: 10,
+        },
+      }).then(res=>{
+        res.data.forEach(item =>{
+          let date2 = new Date(item.date);
+          item.date = date2.toLocaleString()
+          item.temp = item.temp + "℃"
+          item.hum = item.hum + "℃"
+          if(item.name == 'num1'){
+            item.name = '客厅节点'
+          }
+          if(item.name == 'num2'){
+            item.name = '卧室节点'
+          }
+          if(item.fire == '1'){
+            item.fire = '正常'
+          } else if(item.fire == '0'){
+            item.fire = '检测到火焰'
+          }
+        })
+        this.tableData = res.data
+      })
+    },
+    getData(){
+      this.getdata = {
+        status:true,
+        type:'获取中'
+      }
+      this.$axios.get('http://localhost:4000/datalen').then((res)=>{
+      console.log(res)
+      this.pages = Math.floor(res.data[0].TABLE_ROWS / 10)
+      if(res.data[0].TABLE_ROWS > 10 && res.data[0].TABLE_ROWS < 20) {
+          this.pages = 2
+        }
+        console.log(this.pages)
+      }).catch((error)=> {
+          console.log(error)
+      });
+      this.pages = 1
+      this.$axios({
+        url: 'http://localhost:4000/data',
+        method: 'get',
+        params: {
+          page: 1,
+          pageSize: 10,
+        },
+      }).then(res=>{
+        res.data.forEach(item =>{
+          let date2 = new Date(item.date);
+          item.date = date2.toLocaleString()
+          item.temp = item.temp + "℃"
+          item.hum = item.hum + "℃"
+          if(item.name == 'num1'){
+            item.name = '客厅节点'
+          }
+          if(item.name == 'num2'){
+            item.name = '卧室节点'
+          }
+          if(item.fire == '1'){
+            item.fire = '正常'
+          } else {
+            item.fire = '检测到火焰'
+          }
+        })
+        this.getdata = {
+          status:false,
+          type:'获取'
+        }
+        this.$message({
+          message:'获取成功',
+          type: 'success'
+        });
+        this.tableData = res.data
+      })
+    },
+    //更新服务器端接收邮件报警的邮箱
+    editMyEmail(){
+      this.$axios({
+        url: 'http://localhost:4000/updateemail',
+        method: 'post',
+        params: {
+          email: this.email,
+        },
+      }).then(res=>{
+        this.$message({
+          message: res.data,
+          type: 'success'
+        });
+      })
+    },
+
+    //接收消息并更新UI
     update(msg){
       var chart = document.getElementById("chart");
       var chart2 = document.getElementById("chart2");
@@ -295,10 +409,33 @@ export default {
         this.node1.temp = parseInt(msg.temp)
         this.node1.hum = parseInt(msg.hum)
         this.node1.mq = parseInt(msg.mq)
+        if(this.node1.mq > 500){
+          this.$notify.error({
+            title: '严重警告',
+            message: '检测到客厅可燃性气体含量大于500PPM'
+          });
+        }
+        if(this.node1.temp > 30){
+          this.$notify({
+            title: '警告',
+            message: '检测出到客厅温度大于30度',
+            type: 'warning'
+          });
+        }
+        if(this.node1.hum < 40){
+          this.$notify({
+            title: '警告',
+            message: '检测到客厅湿度低于40%，请注意防火',
+            type: 'warning'
+          });
+        }
         if(msg.fire == '0'){
-          this.node1.fire = '正常'
-        } else {
           this.node1.fire = '警报'
+          this.$alert('卧室火焰传感器检测到火焰，请尽快处理', '警报', {
+            confirmButtonText: '确定',
+          });
+        } else {
+          this.node1.fire = '正常'
         }
         if (chartOption.series[0].data.length > 18) {
           chartOption.series[0].data.shift();
@@ -316,10 +453,33 @@ export default {
         this.node2.temp = parseInt(msg.temp)
         this.node2.hum = parseInt(msg.hum)
         this.node2.mq = parseInt(msg.mq)
+        if(this.node2.mq > 500){
+          this.$notify.error({
+            title: '严重警告',
+            message: '检测到卧室可燃性气体含量大于500PPM'
+          });
+        }
+        if(this.node2.temp > 30){
+          this.$notify({
+            title: '警告',
+            message: '检测出卧室温度大于30度',
+            type: 'warning'
+          });
+        }
+        if(this.node2.hum < 40){
+          this.$notify({
+            title: '警告',
+            message: '检测到卧室湿度低于40%，请注意防火',
+            type: 'warning'
+          });
+        }
         if(msg.fire == '0'){
-          this.node2.fire = '正常'
-        } else {
           this.node2.fire = '警报'
+          this.$alert('卧室火焰传感器检测到火焰，请尽快处理', '警报', {
+            confirmButtonText: '确定',
+          });
+        } else {
+          this.node2.fire = '正常'
         }
         if (chart2Option.series[0].data.length > 18) {
           chart2Option.series[0].data.shift();
@@ -376,12 +536,15 @@ export default {
       });
     },
     doPublish() {
-      this.publish.payload = this.input;
-      this.input = "";
       const { topic, qos, payload } = this.publish;
       this.client.publish(topic, payload, qos, (error) => {
         if (error) {
           this.$message.error('发送指令失败：'+error.toString());
+        } else {
+          this.$message({
+            message: `发送指令成功`,
+            type: 'success'
+          });
         }
       });
     },
@@ -464,9 +627,8 @@ export default {
         this.editSub = true
       }
       if(e == '2-3'){
-        this.username = this.connection.username
-        this.password = this.connection.password
-        this.editUser = true
+        this.oldEmail = this.email
+        this.editEmail = true
       }
       if(e == '3-1'){
         this.destroyConnection()
@@ -503,6 +665,9 @@ export default {
     },
     handleClose2(){
       this.subscription.topic.replace(' ', '')
+    },
+    handleClose3(){
+      this.email.replace(' ', '')
     }
   },
 };
@@ -513,6 +678,19 @@ export default {
   height: 100vh;
   background: #1e1e1e !important;
 }
+.el-table .warning-row {
+  background: oldlace;
+}
+
+.el-table .success-row {
+  background: #5bd818;
+}
+
+.el-table .danger-row {
+  background: #fa0000;
+}
+
+
 .card_list {
   padding: 0 0.6rem;
   padding-top: 1.5rem;
